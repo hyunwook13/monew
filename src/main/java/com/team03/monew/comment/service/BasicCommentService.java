@@ -1,10 +1,16 @@
 package com.team03.monew.comment.service;
 
+import com.team03.monew.article.domain.Article;
+import com.team03.monew.article.exception.ArticleErrorCode;
+import com.team03.monew.article.repository.ArticleRepository;
 import com.team03.monew.comment.domain.Comment;
 import com.team03.monew.comment.dto.*;
 import com.team03.monew.comment.repository.CommentRepository;
 import com.team03.monew.commentlike.service.CommentLikeService;
+import com.team03.monew.common.customerror.MonewException;
+import com.team03.monew.user.domain.User;
 import com.team03.monew.user.dto.UserDto;
+import com.team03.monew.user.repository.UserRepository;
 import com.team03.monew.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Slice;
@@ -12,19 +18,27 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class BasicCommentService implements CommentService{
 
     private final CommentRepository commentRepository;
+    private final ArticleRepository articleRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
 
     @Override
     @Transactional
     public CommentDto createComment(CommentRegisterRequest request) {
+
+      Article article = articleRepository.findById(request.articleId())
+          .orElseThrow(() -> new MonewException(ArticleErrorCode.ARTICLE_NOT_FOUND));
+
         Comment comment = Comment.of(
                 request.articleId(),
                 request.userId(),
@@ -32,6 +46,8 @@ public class BasicCommentService implements CommentService{
         );
 
         Comment savedComment = commentRepository.save(comment);
+
+        article.increaseCommentCount();
 
         CommentDto convertComment = new CommentDto(
                 savedComment.getId(),
@@ -59,7 +75,7 @@ public class BasicCommentService implements CommentService{
             List<CommentDto> content = slice.getContent();
             CommentDto lastComment = content.get(content.size() - 1);
 
-            if ("like_count".equals(request.orderBy())) {
+            if ("likeCount".equals(request.orderBy())) {
                 nextCursor = String.valueOf(lastComment.likeCount());
             } else {
                 nextCursor = lastComment.createdAt().toString();
@@ -72,8 +88,13 @@ public class BasicCommentService implements CommentService{
             totalElements = commentRepository.countByArticleIdAndDeletedAtIsNull(request.articleId());
         }
 
+        List<CommentDto> content = new ArrayList<>();
+        if (!slice.getContent().isEmpty()) {
+            content = slice.getContent();
+        }
+
         return new CursorPageResponseCommentDto(
-                slice,
+                content,
                 nextCursor,
                 nextAfter,
                 slice.getContent().size(),
@@ -102,7 +123,14 @@ public class BasicCommentService implements CommentService{
     public void deleteComment(UUID commentId) {
         Comment comment = findById(commentId);
 
+        UUID articleId = comment.getArticleId();
+
+        Article article = articleRepository.findById(articleId)
+            .orElseThrow(() -> new MonewException(ArticleErrorCode.ARTICLE_NOT_FOUND));
+
         comment.softDelete();
+
+        article.decreaseCommentCount();
     }
 
     @Transactional
@@ -132,7 +160,26 @@ public class BasicCommentService implements CommentService{
     @Override
     @Transactional(readOnly = true)
     public List<CommentActivityDto> topTenByUserId(UUID userId) {
-        return commentRepository.findTopTenByUserIdOrderByCreatedAtDesc(userId);
+        List<Comment> commentList = commentRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId);
+        if (commentList.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<UUID> articleIds = commentList.stream()
+                .map(Comment::getArticleId)
+                .toList();
+
+        List<UUID> userIds = commentList.stream()
+                .map(Comment::getUserId)
+                .toList();
+
+        Map<UUID,Article> articleMap = articleRepository.findAllById(articleIds).stream()
+                .collect(Collectors.toMap(Article::getId, Function.identity()));
+
+        Map<UUID, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        return toDto(commentList,articleMap,userMap);
     }
 
     @Override
@@ -155,5 +202,19 @@ public class BasicCommentService implements CommentService{
         Comment comment = findById(commentId);
         comment.decreaseLikeCount();
         commentRepository.save(comment);
+    }
+
+    private List<CommentActivityDto> toDto (
+            List<Comment> commentList,
+            Map<UUID, Article> articleMap,
+            Map<UUID, User> userMap
+    ) {
+        List<CommentActivityDto> commentActivityDtoList = new ArrayList<>();
+        for (Comment comment : commentList) {
+            Article article = articleMap.get(comment.getArticleId());
+            User user = userMap.get(comment.getUserId());
+            commentActivityDtoList.add(new CommentActivityDto(comment, article, user));
+        }
+        return commentActivityDtoList;
     }
 }

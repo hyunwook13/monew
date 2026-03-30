@@ -1,5 +1,6 @@
 package com.team03.monew.interest.service;
 
+import com.team03.monew.article.repository.ArticleRepository;
 import com.team03.monew.interest.domain.Interest;
 import com.team03.monew.interest.dto.*;
 import com.team03.monew.interest.exception.DuplicateInterestNameException;
@@ -21,9 +22,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BasicInterestService implements InterestService {
 
-    private InterestRepository interestRepository;
-    private SubscribeRepository subscribeRepository;
-    private InterestMapper interestMapper;
+    private final InterestRepository interestRepository;
+    private final SubscribeRepository subscribeRepository;
+    private final ArticleRepository articleRepository;
+    private final InterestMapper interestMapper;
 
     @Override
     public InterestDto interestCreate(InterestRegisterRequest request) {
@@ -51,6 +53,7 @@ public class BasicInterestService implements InterestService {
         return interestMapper.toDto(interest,null);
     }
 
+
     @Override
     public InterestDto interestUpdate(UUID interest,InterestUpdateRequest request) {
         Interest interestUpdate = interestRepository.findById(interest)
@@ -66,11 +69,16 @@ public class BasicInterestService implements InterestService {
         Interest interestDelete = interestRepository.findById(interest)
                 .orElseThrow(InterestsNotFoundException::new);
 
-        List<Subscribe> subscribeList = subscribeRepository.findAll().stream()
-                .filter(subscribe -> subscribe.getInterestId().equals(interestDelete.getId()))
-                .toList();
+        // 1. Article이 이 Interest를 참조하는지 확인
+        if (articleRepository.existsByInterestId(interest)) {
+            throw new IllegalStateException("해당 관심사를 참조하는 뉴스가 존재하여 삭제할 수 없습니다.");
+        }
+
+        // 2. Subscribe 삭제 - 효율적인 방법으로 개선
+        List<Subscribe> subscribeList = subscribeRepository.findByInterestIdIn(List.of(interest));
         subscribeRepository.deleteAll(subscribeList);
 
+        // 3. Interest 삭제
         interestRepository.delete(interestDelete);
     }
 
@@ -87,6 +95,10 @@ public class BasicInterestService implements InterestService {
             return new CursorPageResponseInterestDto();
         }
 
+        if (nextCursor.hasNext()){
+            interestList = interestList.subList(0,request.limit());
+        }
+
         //사용자가 구독한 관심사 아이디 추출
         List<UUID> interestIds = interestList.stream()
                 .map(Interest::getId)
@@ -100,10 +112,10 @@ public class BasicInterestService implements InterestService {
 
         //반환형 조립
         return CursorPageResponseInterestDto.builder().
-                content(interestDtoList.subList(0,request.limit()))
+                content(interestDtoList)
                 .nextCursor(nextCursor.nextCursor())
                 .nextAfter(nextCursor.nextAfter())
-                .size(interestDtoList.size()-1)
+                .size(interestDtoList.size())
                 .totalElements(totalElements)
                 .hasNext(nextCursor.hasNext())
                 .build();

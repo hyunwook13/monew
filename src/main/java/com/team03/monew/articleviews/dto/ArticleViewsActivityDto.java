@@ -8,36 +8,33 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record ArticleViewsActivityDto(
-        UUID id,
+                UUID id,
         UUID viewedBy,
         LocalDateTime createdAt,
         UUID articleId,
         ArticleSourceType source,
         String sourceUrl,
         String articleTitle,
-        LocalDateTime articlePublishedAt,
+        LocalDateTime articlePublishedDate,
         String articleSummary,
         Long articleCommentCount,
         Long articleViewCount
 ) {
     public ArticleViewsActivityDto(
-            UUID viewedBy,
-            LocalDateTime createdAt,
-            Article article,
             ArticleViews articleViews
     ) {
         this(
                 articleViews.getId(),
-                viewedBy,
-                createdAt,
-                article.getId(),
-                article.getSource(),
-                article.getResourceLink(),
-                article.getTitle(),
-                article.getPostedAt(),
-                article.getOverview(),
-                article.getCommentCount(),
-                article.getViewCount()
+                articleViews.getUser().getId(),
+                articleViews.getCreatedAt(),
+                articleViews.getArticle().getId(),
+                articleViews.getArticle().getSource(),
+                articleViews.getArticle().getResourceLink(),
+                articleViews.getArticle().getTitle(),
+                articleViews.getArticle().getPostedAt(),
+                articleViews.getArticle().getOverview(),
+                articleViews.getArticle().getCommentCount(),
+                articleViews.getArticle().getViewCount()
         );
     }
 }

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class ArticlesRssScheduler {
 
   private final CollectService articlesCollectService;
-
+  
   // 매 1분마다 RSS 수집 실행
   @Scheduled(cron = "0 * * * * *")
   public void collectArticles() {
