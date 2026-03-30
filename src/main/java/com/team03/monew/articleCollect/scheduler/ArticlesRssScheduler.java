@@ -13,7 +13,8 @@ public class ArticlesRssScheduler {
 
   private final CollectService articlesCollectService;
 
-  @Scheduled(cron = "0 1 * * * *")
+  // 매 1분마다 RSS 수집 실행
+  @Scheduled(cron = "0 * * * * *")
   public void collectArticles() {
     articlesCollectService.fetchAllArticles();
   }
