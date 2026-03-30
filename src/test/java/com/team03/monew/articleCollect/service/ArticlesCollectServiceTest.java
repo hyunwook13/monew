@@ -6,6 +6,8 @@ import com.team03.monew.articleCollect.domain.FilteredArticlesTask;
 import com.team03.monew.articleCollect.domain.ArticlesFeed;
 import com.team03.monew.articleCollect.infrastructure.client.RssClient;
 import com.team03.monew.articleCollect.infrastructure.queue.ArticlesQueue;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +38,8 @@ class ArticlesCollectServiceTest {
   ArticlesQueue articlesQueue;
   @Mock
   KeywordFilterService keywordFilterService;
+  @Spy
+  MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
   @InjectMocks
   ArticlesCollectService collectService;

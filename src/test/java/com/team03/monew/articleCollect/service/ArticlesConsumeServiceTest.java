@@ -10,6 +10,8 @@ import com.team03.monew.articleCollect.event.ArticlesCollectedEvent;
 import com.team03.monew.articleCollect.infrastructure.queue.ArticlesQueue;
 import com.team03.monew.articleCollect.mapper.ArticlesMapper;
 import com.team03.monew.interest.domain.Interest;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -20,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -41,6 +44,8 @@ class ArticlesConsumeServiceTest {
   ArticlesMapper articlesMapper;
   @Mock
   ApplicationEventPublisher eventPublisher;
+  @Spy
+  MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
   @InjectMocks
   ArticlesConsumeService consumeService;
